@@ -111,20 +111,37 @@ $(() => {
                 return;
             }
 
-            ctx.username = sessionStorage.getItem('username');   ctx.isAuth = auth.isAuth();
-
+            ctx.username = sessionStorage.getItem('username');
+            ctx.isAuth = auth.isAuth();
             auth.listAllUsers()
                 .then(userList => {
                    ctx.userList = userList;
-                    console.log(userList);
                     ctx.loadPartials({
                         header: './template/common/header.hbs',
                         footer: './template/common/footer.hbs',
                     }).then(function () {
                         this.partial('./template/sentMessage.hbs')
                     })
-                });
+                }).catch(displayNotification.handleError);
 
+        });
+        this.post('#/send',(ctx)=>{
+
+            if (!auth.isAuth()) {
+                ctx.redirect('#/home');
+                return;
+            }
+
+            let user = ctx.params.recipient;
+            let text = ctx.params.text;
+            let data = {
+                sender_username: sessionStorage.getItem('username'),
+                sender_name: sessionStorage.getItem('name'),
+                recipient_username:user,
+                text: text
+            };
+
+            messagesSrv.sendMessage(data)
         });
         this.get('#/archive', (ctx) => {
             ctx.username = sessionStorage.getItem('username');
@@ -150,10 +167,24 @@ $(() => {
                         message: './template/messageArhive.hbs'
                     }).then(function () {
                         this.partial('./template/archiveSent.hbs')
+                            .then(()=>{
+                                $('button').click((e)=>{
+                                   let id = $(e.target).attr('data-id');
+                                    messagesSrv.deleteMessage(id)
+                                        .then(() => {
+                                            displayNotification.showInfo('message deleted');
+                                   //$(e.target).parent().remove();  //deleting from dom
+                                            location.reload();
+                                }).catch(displayNotification.handleError)
+                                })
+                            })
                     })
+
                 }).catch(displayNotification.handleError);
 
+
         });
+
 
 
         function formatDate(dateISO8601) {

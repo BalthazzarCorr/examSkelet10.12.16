@@ -26,7 +26,8 @@ let messagesSrv = (()=>{
     return{
         listMessagesByRecipient,
         listMessagesBySender,
-        sendMessage
+        sendMessage,
+        deleteMessage
 
     }
 

@@ -1,136 +1,159 @@
-$(()=>{
+$(() => {
 
-    const app = Sammy('#app',function () {        /// div to populate and routs
-                this.use('Handlebars','hbs');
-                this.get('index.html',getHomePage);
-                this.get('#/home',(ctx)=>{
+    const app = Sammy('#app', function () {        /// div to populate and routs
+        this.use('Handlebars', 'hbs');
+        this.get('index.html', getHomePage);
+        this.get('#/home', (ctx) => {
+            ctx.isAuth = auth.isAuth();
+            ctx.username = sessionStorage.getItem('username');
+            ctx.loadPartials({
+                header: './template/common/header.hbs',
+                footer: './template/common/footer.hbs'
+            }).then(function () {
+                this.partial('./template/home.hbs')
+            })
+        });
+        this.get('#/login', (ctx) => {
+            if (!auth.isAuth()) {
+                ctx.username = sessionStorage.getItem('username');
+                ctx.isAuth = auth.isAuth();
+                ctx.loadPartials({
+                    header: './template/common/header.hbs',
+                    footer: './template/common/footer.hbs'
+                }).then(function () {
+                    this.partial('./template/login.hbs')
+                })
+            } else {
+                ctx.redirect('#/home')
+            }
+        });
+        this.post('#/login', (ctx) => {
+            let username = ctx.params.username;
+            let password = ctx.params.password;
+
+
+            auth.login(username, password)
+                .then((userData) => {
+                    auth.saveSession(userData);
+                    displayNotification.showInfo('Login Successful.');
                     ctx.isAuth = auth.isAuth();
-                    ctx.username = sessionStorage.getItem('username');
+                    ctx.redirect('#/home');
+                }).catch(displayNotification.handleError);
+
+        });
+        this.get('#/logout', (ctx) => {
+            auth.logout().then(() => {
+                sessionStorage.clear();
+                ctx.redirect('#/home')
+            }).catch(displayNotification.handleError)
+        });
+        this.get('#/register', (ctx) => {
+            if (!auth.isAuth()) {
+                ctx.isAuth = auth.isAuth();
+                ctx.loadPartials({
+                    header: './template/common/header.hbs',
+                    footer: './template/common/footer.hbs'
+                }).then(function () {
+                    this.partial('./template/register.hbs')
+                })
+            } else {
+                ctx.redirect('#/home')
+            }
+        });
+        this.post('#/register', (ctx) => {
+
+            let username = ctx.params.username;
+            let password = ctx.params.password;
+            let name = ctx.params.name;
+
+            auth.register(username, password, name)
+                .then((userData) => {
+                    auth.saveSession(userData);
+                    displayNotification.showInfo('User registration successful!');
+                    ctx.redirect('#/home');
+                })
+                .catch(displayNotification.handleError);
+        });
+        this.get('#/mymessages', (ctx) => {
+
+
+            if (!auth.isAuth()) {
+                ctx.redirect('#/home');
+                return;
+            }
+
+            messagesSrv.listMessagesByRecipient().then((messages) => {
+                messages.forEach((m) => {
+                    m.date = formatDate(m._kmd.lmt);
+                    m.sender = formatSender(m.sender_name, m.sender_username);
+                });
+
+                ctx.messages = messages;
+
+                ctx.username = sessionStorage.getItem('username');
+                ctx.isAuth = auth.isAuth();
+                ctx.loadPartials({
+                    header: './template/common/header.hbs',
+                    footer: './template/common/footer.hbs',
+                    message:'./template/message.hbs'
+                })
+                    .then(function () {
+                    this.partial('./template/myMessages.hbs')
+                })
+
+            });
+
+
+        });
+        this.get('#/send', (ctx) => {
+            if (!auth.isAuth()) {
+                ctx.redirect('#/home');
+                return;
+            }
+
+            ctx.username = sessionStorage.getItem('username');   ctx.isAuth = auth.isAuth();
+
+            auth.listAllUsers()
+                .then(userList => {
+                   ctx.userList = userList;
+                    console.log(userList);
                     ctx.loadPartials({
                         header: './template/common/header.hbs',
-                        footer: './template/common/footer.hbs'
+                        footer: './template/common/footer.hbs',
                     }).then(function () {
-                        this.partial('./template/home.hbs')
+                        this.partial('./template/sentMessage.hbs')
                     })
                 });
-                this.get('#/login',(ctx)=>{
-                    if (!auth.isAuth()) {
-                        ctx.isAuth = auth.isAuth();
-                        ctx.loadPartials({
-                            header: './template/common/header.hbs',
-                            footer: './template/common/footer.hbs'
-                        }).then(function () {
-                            this.partial('./template/login.hbs')
-                        })
-                    } else {
-                        ctx.redirect('#/home')
-                    }
-                });
-                this.post('#/login',(ctx)=>{
-                    let username = ctx.params.username;
-                    let password = ctx.params.password;
 
+        });
+        this.get('#/archive', (ctx) => {
+            ctx.username = sessionStorage.getItem('username');
 
-                    auth.login(username, password)
-                        .then((userData) => {
-                            auth.saveSession(userData);
-                            displayNotification.showInfo('Login Successful.');
-                            ctx.isAuth = auth.isAuth();
-                            ctx.redirect('#/home');
-                        }).catch(displayNotification.handleError);
+            if (!auth.isAuth()) {
+                ctx.redirect('#/home');
+                return;
+            }
 
-                });
-                this.get('#/logout',(ctx)=>{
-                    auth.logout().then(() => {
-                        sessionStorage.clear();
-                        ctx.redirect('#/home')
-                    }).catch(displayNotification.handleError)
-                });
-                this.get('#/register',(ctx)=>{
-                    if (!auth.isAuth()) {
-                        ctx.isAuth = auth.isAuth();
-                        ctx.loadPartials({
-                            header: './template/common/header.hbs',
-                            footer: './template/common/footer.hbs'
-                        }).then(function () {
-                            this.partial('./template/register.hbs')
-                        })
-                    } else {
-                        ctx.redirect('#/home')
-                    }
-                });
-                this.post('#/register',(ctx)=>{
+            messagesSrv.listMessagesBySender()
+                .then((messages) => {
+                    messages.forEach((m) => {
+                        m.date = formatDate(m._kmd.lmt);
+                        m.reciver = m.recipient_username;
+                    });
 
-                    let username = ctx.params.username;
-                    let password = ctx.params.password;
-                    let name = ctx.params.name;
+                    ctx.messages = messages;
 
-                    auth.register(username, password, name)
-                        .then((userData) => {
-                            auth.saveSession(userData);
-                            displayNotification.showInfo('User registration successful!');
-                            ctx.redirect('#/home');
-                        })
-                        .catch(displayNotification.handleError);
-                });
-                this.get('#/mymessages',(ctx)=>{
+                    ctx.isAuth = auth.isAuth();
+                    ctx.loadPartials({
+                        header: './template/common/header.hbs',
+                        footer: './template/common/footer.hbs',
+                        message: './template/messageArhive.hbs'
+                    }).then(function () {
+                        this.partial('./template/archiveSent.hbs')
+                    })
+                }).catch(displayNotification.handleError);
 
-                    if (auth.isAuth()) {
-                        ctx.isAuth = auth.isAuth();
-                        ctx.loadPartials({
-                            header: './template/common/header.hbs',
-                            footer: './template/common/footer.hbs'
-                        }).then(function () {
-                            this.partial('./template/myMessages.hbs')
-                        })
-                    } else {
-                        ctx.redirect('#/home')
-                    }
-                });
-                this.get('#/send',(ctx)=>{
-                    if (auth.isAuth()) {
-                        ctx.isAuth = auth.isAuth();
-                        ctx.loadPartials({
-                            header: './template/common/header.hbs',
-                            footer: './template/common/footer.hbs'
-                        }).then(function () {
-                            this.partial('./template/sentMessage.hbs')
-                        })
-                    } else {
-                        ctx.redirect('#/home')
-                    }
-                });
-                this.get('#/archive',(ctx)=>{
-
-
-                    if (!auth.isAuth()) {
-                        ctx.redirect('#/home');
-                        return;
-                    }
-
-                       messagesSrv.listMessagesBySender()
-                           .then((messages)=>{
-                           messages.forEach((m)=>{
-                               m.date = formatDate(m._kmd.lmt);
-                               m.sender = formatSender(m.sender_name,m.sender_username);
-                           });
-
-                           ctx.messages = messages;
-
-                               ctx.isAuth = auth.isAuth();
-                               ctx.loadPartials({
-                                   header: './template/common/header.hbs',
-                                   footer: './template/common/footer.hbs',
-                                   message:'./template/messageArhive.hbs'
-                               }).then(function () {
-                                   this.partial('./template/archiveSent.hbs')
-                               })
-                       });
-
-                });
-
-
-
+        });
 
 
         function formatDate(dateISO8601) {

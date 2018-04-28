@@ -5,11 +5,9 @@
         <div>Recipient:</div>
         <div>
             <select name="recipient" required id="msgRecipientUsername">
-                <option value="maria">Maria Georgieva (maria)</option>
-                <option value="guest">guest</option>
-                <option value="peter">Peter Ivanova (peter)</option>
-                <option value="todor">todor</option>
-                <!-- TODO: more users will come here -->
+                {{#each userList}}
+                    <option value="{{username}}">{{name}} ({{username}})</option>
+                {{/each}}
             </select>
         </div>
         <div>Message Text:</div>
